@@ -1,13 +1,16 @@
 // Storage and PIN lock, no DOM. `storage` is anything shaped like localStorage
 // (getItem/setItem/removeItem), so Node tests can pass an in-memory fake.
-import { emptyData, hashPin, newSalt, validPin } from './logic.js';
+import { cleanData, emptyData, hashPin, newSalt, validPin } from './logic.js';
 
 export const DATA_KEY = 'care-reminder:data';
 export const AUTH_KEY = 'care-reminder:auth';
 
-/** Saved data merged over the empty shape; missing or unreadable data gives an empty app. */
+/** Saved data, cleaned like an import; missing or unreadable data gives an empty app. */
 export function loadData(storage) {
-  try { return { ...emptyData(), ...JSON.parse(storage.getItem(DATA_KEY)) }; } catch { return emptyData(); }
+  try {
+    const raw = JSON.parse(storage.getItem(DATA_KEY));
+    return raw && typeof raw === 'object' ? cleanData(raw) : emptyData();
+  } catch { return emptyData(); }
 }
 
 export function saveData(storage, data) {

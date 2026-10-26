@@ -1,7 +1,7 @@
 // Export/import: round trip, and invalid or hostile JSON.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyData, makeBackup, parseBackup } from '../js/logic.js';
+import { emptyData, makeBackup, parseBackup, sortAppointments, sortDoses } from '../js/logic.js';
 import { loadData, saveData } from '../js/store.js';
 import { MemoryStorage } from './helpers/memory-storage.mjs';
 
@@ -88,4 +88,27 @@ test('ids that could break out of an HTML attribute are dropped on import', () =
   assert.deepEqual(d.meds.map((x) => x.id), ['ok-1']);
   assert.deepEqual(d.doses, []);
   assert.equal(d.appts.length, 1, 'randomUUID ids still import');
+});
+
+test('wrong field types are dropped so the tabs cannot crash', () => {
+  const d = parseBackup(JSON.stringify({
+    meds: [{ id: 'm1', title: 'no name' }, { id: 'm2', name: 'A', dose: 10, current: 'yes', notes: 'ok', extra: { deep: 1 } }],
+    doses: [{ id: 'd1', name: 'B', time: 800 }, { id: 'd2', name: 'C', time: '8:00' }, { id: 'd3', name: 'D', time: '' }, { id: 'd4', name: ['E'] }],
+    appts: [{ id: 'a1', title: 'F', date: 20990101 }, { id: 'a2', title: 'G', date: '2099-01-01', time: 9, place: null }, { id: 'a3', name: 'no title', date: '2099-01-01' }],
+    checks: { '2026-10-25': { d1: true, d2: 'yes', 'x y': true }, 'not-a-date': { d1: true }, '2026-10-24': 5 },
+  }));
+  assert.deepEqual(d.meds, [{ id: 'm2', name: 'A', notes: 'ok' }]);
+  assert.deepEqual(d.doses, [{ id: 'd1', name: 'B' }, { id: 'd2', name: 'C' }, { id: 'd3', name: 'D', time: '' }]);
+  assert.deepEqual(d.appts, [{ id: 'a2', title: 'G', date: '2099-01-01' }]);
+  assert.deepEqual(d.checks, { '2026-10-25': { d1: true } });
+  assert.doesNotThrow(() => { sortDoses(d.doses); sortAppointments(d.appts); [...d.meds].sort((a, b) => a.name.localeCompare(b.name)); });
+});
+
+test('bad data already saved on the device is cleaned on load', () => {
+  const s = new MemoryStorage();
+  s.setItem('care-reminder:data', JSON.stringify({ meds: null, doses: [{ id: 'd', name: 'B', time: 800 }, { id: 'e', name: 'C' }], appts: 'x' }));
+  const d = loadData(s);
+  assert.deepEqual(d.meds, []);
+  assert.deepEqual(d.appts, []);
+  assert.deepEqual(sortDoses(d.doses).map((x) => x.id), ['d', 'e']);
 });

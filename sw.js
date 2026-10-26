@@ -1,6 +1,6 @@
 // Service worker: precache the app shell so it opens offline.
 // Bump CACHE whenever any file in ASSETS changes, or phones keep the old copy.
-const CACHE = 'care-reminder-v3';
+const CACHE = 'care-reminder-v4';
 const ASSETS = [
   './',
   'index.html',
