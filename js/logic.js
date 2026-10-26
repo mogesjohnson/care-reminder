@@ -69,6 +69,35 @@ export const sortDoses = (doses) => [...doses].sort((a, b) => (a.time || '99:99'
 /** Ids the app makes (crypto.randomUUID) and any plain token; anything else could break out of an HTML attribute. */
 export const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
+const isText = (v) => typeof v === 'string';
+const isTime = (v) => v === '' || (isText(v) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v));
+const isDate = (v) => isText(v) && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const isObject = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+/** Fields each list may hold. Missing or wrong required fields drop the item; wrong optional ones are left out. */
+const FIELDS = {
+  meds: { required: { name: isText }, optional: { kind: isText, dose: isText, how: isText, notes: isText, current: (v) => typeof v === 'boolean' } },
+  doses: { required: { name: isText }, optional: { amount: isText, time: isTime } },
+  appts: { required: { title: isText, date: isDate }, optional: { time: isTime, place: isText, notes: isText } },
+};
+
+function cleanItem(x, { required, optional }) {
+  if (!isObject(x) || !isText(x.id) || !SAFE_ID.test(x.id)) return null;
+  const out = { id: x.id };
+  for (const [k, ok] of Object.entries(required)) { if (!ok(x[k])) return null; out[k] = x[k]; }
+  for (const [k, ok] of Object.entries(optional)) if (ok(x[k])) out[k] = x[k];
+  return out;
+}
+
+/** Keeps only well-typed items and check-offs, so bad data cannot crash rendering. */
+export function cleanData(d) {
+  const list = (k) => (Array.isArray(d[k]) ? d[k] : []).map((x) => cleanItem(x, FIELDS[k])).filter(Boolean);
+  const checks = {};
+  for (const [day, done] of Object.entries(isObject(d.checks) ? d.checks : {})) {
+    if (isDate(day) && isObject(done)) checks[day] = Object.fromEntries(Object.entries(done).filter(([id, v]) => SAFE_ID.test(id) && v === true));
+  }
+  return { version: STORE_VERSION, meds: list('meds'), appts: list('appts'), doses: list('doses'), checks };
+}
+
 /** Validates an imported backup and returns clean data, or throws with a reason. */
 export function parseBackup(text) {
   let raw;
@@ -78,9 +107,7 @@ export function parseBackup(text) {
   for (const k of ['meds', 'appts', 'doses']) {
     if (d[k] !== undefined && !Array.isArray(d[k])) throw new Error(`"${k}" must be a list.`);
   }
-  const ok = (list) => (list || []).filter((x) => x && typeof x.id === 'string' && SAFE_ID.test(x.id) && typeof (x.name ?? x.title) === 'string');
-  const checks = d.checks && typeof d.checks === 'object' && !Array.isArray(d.checks) ? d.checks : {};
-  return { version: STORE_VERSION, meds: ok(d.meds), appts: ok(d.appts), doses: ok(d.doses), checks };
+  return cleanData(d);
 }
 
 export const makeBackup = (data, now = new Date()) =>
