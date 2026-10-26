@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "node scripts/setup-hooks.mjs",
-    "test": "node scripts/test/run.mjs && node --test tests/logic.test.mjs",
+    "test": "node scripts/test/run.mjs && node --test tests/*.test.mjs",
     "check:size": "node scripts/check/pr-size.mjs"
   },
   "type": "module"

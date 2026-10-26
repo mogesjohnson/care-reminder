@@ -1,17 +1,13 @@
 // Care Reminder UI. All data lives in this browser's localStorage; nothing leaves the device.
-import { apptGroup, checksFor, dateKey, emptyData, hashPin, makeBackup, newSalt, parseBackup, sortAppointments, sortDoses, toggleCheck, validPin } from './logic.js';
+import { apptGroup, checksFor, dateKey, makeBackup, parseBackup, sortAppointments, sortDoses, toggleCheck, validPin } from './logic.js';
+import { loadData, persistStatus, readAuth, resetApp, saveData, setPin, verifyPin } from './store.js';
 
-const DATA_KEY = 'care-reminder:data';
-const AUTH_KEY = 'care-reminder:auth';
 const $ = (id) => document.getElementById(id);
-let data = load();
+let data = loadData(localStorage);
 let showPast = false;
 let persisted = null;
 
-function load() {
-  try { return { ...emptyData(), ...JSON.parse(localStorage.getItem(DATA_KEY)) }; } catch { return emptyData(); }
-}
-function save(next) { data = next; localStorage.setItem(DATA_KEY, JSON.stringify(data)); render(); }
+function save(next) { data = saveData(localStorage, next); render(); }
 const uid = () => crypto.randomUUID();
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
@@ -19,9 +15,8 @@ const fmtTime = (t) => (t ? new Date(`2000-01-01T${t}`).toLocaleTimeString([], {
 const fmtDate = (d) => new Date(`${d}T00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
 // ---- Lock screen ----
-function auth() { try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch { return null; } }
 function showLock() {
-  const setup = !auth();
+  const setup = !readAuth(localStorage);
   $('app').hidden = true; $('lock').hidden = false;
   $('lockHint').textContent = setup ? 'Choose a 4 to 8 digit PIN for this device.' : 'Enter your PIN to open.';
   $('pinLabel').textContent = setup ? 'New PIN' : 'PIN';
@@ -32,21 +27,19 @@ function showLock() {
 function unlock() { $('lock').hidden = true; $('app').hidden = false; render(); }
 $('lockForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const pin = $('pin').value; const a = auth();
+  const pin = $('pin').value;
   if (!validPin(pin)) { $('lockError').textContent = 'Use 4 to 8 digits.'; return; }
-  if (!a) {
+  if (!readAuth(localStorage)) {
     if (pin !== $('pin2').value) { $('lockError').textContent = 'The PINs do not match.'; return; }
-    const salt = newSalt();
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ salt, hash: await hashPin(pin, salt) }));
+    await setPin(localStorage, pin);
     unlock(); return;
   }
-  if ((await hashPin(pin, a.salt)) === a.hash) unlock();
+  if (await verifyPin(localStorage, pin)) unlock();
   else { $('lockError').textContent = 'Wrong PIN.'; $('pin').value = ''; }
 });
 function resetAll() {
   if (!confirm('Reset Care Reminder? This erases the PIN and ALL your data on this device. Export a backup first if you need it.')) return;
-  localStorage.removeItem(DATA_KEY); localStorage.removeItem(AUTH_KEY);
-  data = emptyData(); showLock(); toast('App reset');
+  data = resetApp(localStorage); showLock(); toast('App reset');
 }
 $('resetBtn').addEventListener('click', resetAll);
 $('lockBtn').addEventListener('click', showLock);
@@ -177,7 +170,7 @@ async function importData(file) {
 
 // ---- Persistence and offline ----
 (async () => {
-  try { persisted = (await navigator.storage?.persisted?.()) || (await navigator.storage?.persist?.()) || false; } catch { persisted = false; }
+  persisted = await persistStatus(navigator);
   if (!$('app').hidden) render();
 })();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
