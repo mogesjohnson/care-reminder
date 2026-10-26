@@ -90,7 +90,7 @@ const doses = crud('doses', [
   { name: 'name', label: 'Pill or supplement', required: true }, { name: 'amount', label: 'Amount (e.g. 1 tablet)' }, { name: 'time', label: 'Time', type: 'time' },
 ], 'dose');
 
-const actions = (kind, id) => `<div class="row"><button class="btn secondary small" data-act="edit" data-kind="${kind}" data-id="${id}">Edit</button><button class="btn danger small" data-act="del" data-kind="${kind}" data-id="${id}">Delete</button></div>`;
+const actions = (kind, id) => `<div class="row"><button class="btn secondary small" data-act="edit" data-kind="${kind}" data-id="${esc(id)}">Edit</button><button class="btn danger small" data-act="del" data-kind="${kind}" data-id="${esc(id)}">Delete</button></div>`;
 const head = (text, kind) => `<div class="panel-head"><p>${text}</p><button class="btn primary" data-act="add" data-kind="${kind}">+ Add</button></div>`;
 const empty = (text) => `<div class="empty">${text}</div>`;
 const medCard = (m) => `<article class="card"><h3>${esc(m.name)}</h3><p class="meta"><span class="tag">${esc(m.kind || 'Medication')}</span>${m.current ? '<span class="tag">Current</span>' : ''}${esc([m.dose, m.how].filter(Boolean).join(' · '))}</p>${m.notes ? `<p>${esc(m.notes)}</p>` : ''}${actions('med', m.id)}</article>`;
@@ -101,7 +101,7 @@ const views = {
     const n = list.filter((d) => done[d.id]).length;
     return `${head(`${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })} · ${n} of ${list.length} taken`, 'dose')}
       ${list.length ? `<div class="progress"><span style="width:${list.length ? (100 * n) / list.length : 0}%"></span></div>` : ''}
-      ${list.map((d) => `<article class="card ${done[d.id] ? 'done' : ''}"><label class="check"><input type="checkbox" data-dose="${d.id}" ${done[d.id] ? 'checked' : ''}><span><strong>${esc(d.name)}</strong><br><span class="meta">${esc([fmtTime(d.time), d.amount].filter(Boolean).join(' · '))}</span></span></label>${actions('dose', d.id)}</article>`).join('')
+      ${list.map((d) => `<article class="card ${done[d.id] ? 'done' : ''}"><label class="check"><input type="checkbox" data-dose="${esc(d.id)}" ${done[d.id] ? 'checked' : ''}><span><strong>${esc(d.name)}</strong><br><span class="meta">${esc([fmtTime(d.time), d.amount].filter(Boolean).join(' · '))}</span></span></label>${actions('dose', d.id)}</article>`).join('')
       || empty('No daily doses yet. Tap “+ Add” to list the pills you take each day. Check-offs reset every morning.')}`;
   },
   current() {
