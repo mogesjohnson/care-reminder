@@ -10,8 +10,6 @@
 /.github/ @mogesjohnson
 /.githooks/ @mogesjohnson
 /scripts/ @mogesjohnson
-/AGENTS.md @mogesjohnson
-/RULES.md @mogesjohnson
 /package.json @mogesjohnson
 /package-lock.json @mogesjohnson
 # /REPO-SPECIFIC
