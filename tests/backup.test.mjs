@@ -1,0 +1,79 @@
+// Export/import: round trip, and invalid or hostile JSON.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { emptyData, makeBackup, parseBackup } from '../js/logic.js';
+import { loadData, saveData } from '../js/store.js';
+import { MemoryStorage } from './helpers/memory-storage.mjs';
+
+const now = new Date(Date.UTC(2026, 9, 25, 16, 0));
+const sample = () => ({
+  ...emptyData(),
+  meds: [{ id: 'm1', name: 'Example med', kind: 'Medication', dose: '10 mg', how: 'Daily', current: true, notes: 'with food' }],
+  appts: [{ id: 'a1', title: 'Checkup', date: '2026-11-01', time: '09:30', place: 'Clinic', notes: '' }],
+  doses: [{ id: 'd1', name: 'Example med', amount: '1 tablet', time: '08:00' }],
+  checks: { '2026-10-25': { d1: true } },
+});
+
+test('export is labelled JSON with a timestamp and the data', () => {
+  const b = JSON.parse(makeBackup(sample(), now));
+  assert.equal(b.app, 'care-reminder');
+  assert.equal(b.exportedAt, '2026-10-25T16:00:00.000Z');
+  assert.deepEqual(b.data, sample());
+});
+
+test('export then import gives back the same data', () => {
+  assert.deepEqual(parseBackup(makeBackup(sample(), now)), sample());
+});
+
+test('a full device round trip: save, export, reset, import, reload', () => {
+  const a = new MemoryStorage(); saveData(a, sample());
+  const file = makeBackup(loadData(a), now);
+  const b = new MemoryStorage(); saveData(b, parseBackup(file));
+  assert.deepEqual(loadData(b), sample());
+});
+
+test('a bare data object (no wrapper) also imports', () => {
+  assert.deepEqual(parseBackup(JSON.stringify(sample())), sample());
+});
+
+test('not JSON at all is rejected', () => {
+  for (const t of ['', 'nope', '{', '<html></html>', '{"meds": [}']) assert.throws(() => parseBackup(t), /valid JSON/, t);
+});
+
+test('JSON with no data object is rejected', () => {
+  for (const t of ['null', '3', '"text"', 'true', '{"app":"care-reminder","data":null}', '{"app":"care-reminder","data":5}']) {
+    assert.throws(() => parseBackup(t), /No Care Reminder data/, t);
+  }
+});
+
+test('lists that are not lists are rejected', () => {
+  assert.throws(() => parseBackup('{"meds": 3}'), /"meds" must be a list/);
+  assert.throws(() => parseBackup('{"appts": {"0": {}}}'), /"appts" must be a list/);
+  assert.throws(() => parseBackup('{"doses": "x"}'), /"doses" must be a list/);
+});
+
+test('items without a string id and name/title are dropped', () => {
+  const d = parseBackup(JSON.stringify({ meds: [null, 1, 'x', [], {}, { id: 1, name: 'n' }, { id: 'ok', name: 'Keep' }, { id: 'x', name: 5 }] }));
+  assert.deepEqual(d.meds, [{ id: 'ok', name: 'Keep' }]);
+});
+
+test('bad checks become empty instead of breaking the Today tab', () => {
+  for (const checks of [null, 5, 'x', [1, 2]]) assert.deepEqual(parseBackup(JSON.stringify({ checks })).checks, {}, JSON.stringify(checks));
+});
+
+test('the version is always set to the current one', () => {
+  assert.equal(parseBackup('{"version": 999}').version, emptyData().version);
+});
+
+test('a __proto__ key does not pollute Object.prototype', () => {
+  const evil = '{"__proto__": {"polluted": true}, "meds": [{"id": "m", "name": "A", "__proto__": {"polluted": true}}], "checks": {"__proto__": {"polluted": true}}}';
+  const d = parseBackup(evil);
+  assert.equal({}.polluted, undefined);
+  assert.equal(Object.prototype.polluted, undefined);
+  assert.equal(d.meds.length, 1);
+});
+
+test('a very large backup still parses', () => {
+  const meds = Array.from({ length: 5000 }, (_, i) => ({ id: `m${i}`, name: `Med ${i}` }));
+  assert.equal(parseBackup(JSON.stringify({ meds })).meds.length, 5000);
+});
