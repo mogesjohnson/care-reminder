@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -15,7 +15,14 @@ test('a filled-in template body passes', () => {
   assert.deepEqual(checkBody(filled), []);
 });
 
-const template = readFileSync(new URL('../../.github/pull_request_template.md', import.meta.url), 'utf8');
+// The PR body layout (this repo keeps no PR template file; see README).
+const template = [
+  '## Summary', '', '<!-- One to three sentences. -->', '', 'Tracking: <!-- #123 or "none" -->', '',
+  '## Validation', '', '- <!-- pass: `npm test` -->', '',
+  '## Size', '', '<!-- pr-size output -->', '',
+  '## Review checklist', '', '- [ ] Scope matches the issue.', '',
+  '## Risks and follow-ups', '', '<!-- or "none" -->', '',
+].join('\n');
 
 test('the untouched PR template fails on every placeholder', () => {
   const problems = checkBody(template).join('\n');
