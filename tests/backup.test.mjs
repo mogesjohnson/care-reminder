@@ -77,3 +77,15 @@ test('a very large backup still parses', () => {
   const meds = Array.from({ length: 5000 }, (_, i) => ({ id: `m${i}`, name: `Med ${i}` }));
   assert.equal(parseBackup(JSON.stringify({ meds })).meds.length, 5000);
 });
+
+test('ids that could break out of an HTML attribute are dropped on import', () => {
+  const evil = '"><img src=x onerror=alert(1)>';
+  const d = parseBackup(JSON.stringify({
+    meds: [{ id: evil, name: 'A' }, { id: 'ok-1', name: 'B' }],
+    doses: [{ id: "x' onmouseover='1", name: 'C' }, { id: '', name: 'D' }, { id: 'a'.repeat(65), name: 'E' }],
+    appts: [{ id: '0b8e4c2a-6f1d-4e3b-9a7c-2d5f8e1b3c4a', title: 'F', date: '2026-11-01' }],
+  }));
+  assert.deepEqual(d.meds.map((x) => x.id), ['ok-1']);
+  assert.deepEqual(d.doses, []);
+  assert.equal(d.appts.length, 1, 'randomUUID ids still import');
+});

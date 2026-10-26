@@ -66,6 +66,9 @@ export function pruneChecks(checks, todayKey, keep = 30) {
 
 export const sortDoses = (doses) => [...doses].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99') || a.name.localeCompare(b.name));
 
+/** Ids the app makes (crypto.randomUUID) and any plain token; anything else could break out of an HTML attribute. */
+export const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** Validates an imported backup and returns clean data, or throws with a reason. */
 export function parseBackup(text) {
   let raw;
@@ -75,7 +78,7 @@ export function parseBackup(text) {
   for (const k of ['meds', 'appts', 'doses']) {
     if (d[k] !== undefined && !Array.isArray(d[k])) throw new Error(`"${k}" must be a list.`);
   }
-  const ok = (list) => (list || []).filter((x) => x && typeof x.id === 'string' && typeof (x.name ?? x.title) === 'string');
+  const ok = (list) => (list || []).filter((x) => x && typeof x.id === 'string' && SAFE_ID.test(x.id) && typeof (x.name ?? x.title) === 'string');
   const checks = d.checks && typeof d.checks === 'object' && !Array.isArray(d.checks) ? d.checks : {};
   return { version: STORE_VERSION, meds: ok(d.meds), appts: ok(d.appts), doses: ok(d.doses), checks };
 }
