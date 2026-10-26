@@ -1,0 +1,24 @@
+# BEST-OF-AI-DEV template v1. Project config for Codex.
+# Codex reads this file only after you trust the project; until then your user config applies.
+# It cannot set providers, profiles, notify or telemetry: those stay in ~/.codex/config.toml.
+
+# Ask before leaving the sandbox. "never" is for CI or `codex exec` in a throwaway container.
+approval_policy = "on-request"
+
+# Write inside the repo only. danger-full-access is never a project default.
+sandbox_mode = "workspace-write"
+
+# Web search reads a cached index, not the live web. Prompt injection rides in on live pages.
+web_search = "cached"
+
+[sandbox_workspace_write]
+# No outbound network from commands. Turn on per session (`-c`) when a task needs npm install.
+network_access = false
+
+[shell_environment_policy]
+# Default is true, which passes variables named *KEY*, *SECRET* or *TOKEN* through to every
+# command the agent runs. false strips them.
+ignore_default_excludes = false
+
+# REPO-SPECIFIC: extra writable roots or MCP servers this repo needs. Keep secrets out of here.
+# /REPO-SPECIFIC

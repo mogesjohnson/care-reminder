@@ -1,0 +1,20 @@
+# BEST-OF-AI-DEV template v1. Optional: lefthook instead of .githooks/.
+# Same checks, same scripts; lefthook only changes who calls them. Use it when the repo
+# already has lefthook as a dev dependency, or wants its parallel runs and skip options.
+# Adding lefthook is a new dependency: ask first (RULES.md R3). It needs a package.json.
+# Copy to the repo root as lefthook.yml, then run: node scripts/setup-hooks.mjs
+# setup-hooks.mjs sees lefthook.yml, clears core.hooksPath and runs "lefthook install".
+# If lefthook is missing, setup-hooks.mjs exits 1 and keeps .githooks/ active.
+# Do not keep both systems active: lefthook will not install while core.hooksPath is set.
+commit-msg:
+  jobs:
+    - name: conventional commit
+      run: node scripts/check/commit-msg.mjs {1}
+pre-commit:
+  jobs:
+    - name: local checks
+      run: node scripts/hooks/run-checks.mjs pre-commit
+pre-push:
+  jobs:
+    - name: local checks
+      run: node scripts/hooks/run-checks.mjs pre-push
