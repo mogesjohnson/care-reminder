@@ -18,6 +18,19 @@ export function saveData(storage, data) {
   return data;
 }
 
+/** Human-readable reason a save failed (full storage vs. blocked storage). */
+export function saveErrorMessage(err) {
+  const full = err?.name === 'QuotaExceededError' || err?.name === 'NS_ERROR_DOM_QUOTA_REACHED';
+  return full
+    ? 'Not saved: storage is full. Export a backup, then delete old items.'
+    : 'Not saved: this browser blocked storage.';
+}
+
+/** Saves without throwing: true on success; on failure calls onError(message) and returns false. */
+export function trySaveData(storage, data, onError) {
+  try { saveData(storage, data); return true; } catch (err) { onError?.(saveErrorMessage(err)); return false; }
+}
+
 /** The stored { salt, hash } record, or null when no PIN is set yet. */
 export function readAuth(storage) {
   try { return JSON.parse(storage.getItem(AUTH_KEY)); } catch { return null; }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyData } from '../js/logic.js';
-import { AUTH_KEY, DATA_KEY, loadData, persistStatus, saveData } from '../js/store.js';
+import { AUTH_KEY, DATA_KEY, loadData, persistStatus, saveData, saveErrorMessage, trySaveData } from '../js/store.js';
 import { MemoryStorage } from './helpers/memory-storage.mjs';
 
 test('a fresh device loads empty data', () => {
@@ -57,4 +57,30 @@ test('persistStatus reports granted, asks when not yet granted, and survives mis
   assert.equal(await persistStatus({}), false);
   assert.equal(await persistStatus(undefined), false);
   assert.equal(await persistStatus({ storage: { persisted: async () => { throw new Error('denied'); } } }), false);
+});
+
+test('trySaveData reports a full-storage failure instead of throwing', () => {
+  const s = new MemoryStorage({ failWrites: true });
+  const errors = [];
+  assert.equal(trySaveData(s, emptyData(), (m) => errors.push(m)), false);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /storage is full/);
+  assert.equal(s.getItem(DATA_KEY), null);
+});
+
+test('trySaveData reports blocked storage and tolerates a missing handler', () => {
+  const blocked = { setItem() { throw Object.assign(new Error('denied'), { name: 'SecurityError' }); } };
+  const errors = [];
+  assert.equal(trySaveData(blocked, emptyData(), (m) => errors.push(m)), false);
+  assert.match(errors[0], /blocked storage/);
+  assert.equal(trySaveData(blocked, emptyData()), false);
+  assert.match(saveErrorMessage(undefined), /^Not saved/);
+});
+
+test('trySaveData saves and returns true when storage works', () => {
+  const s = new MemoryStorage();
+  let called = false;
+  assert.equal(trySaveData(s, emptyData(), () => { called = true; }), true);
+  assert.equal(called, false);
+  assert.deepEqual(loadData(s), emptyData());
 });

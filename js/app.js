@@ -1,16 +1,18 @@
 // Care Reminder UI. All data lives in this browser's localStorage; nothing leaves the device.
 import { apptGroup, checksFor, dateKey, makeBackup, parseBackup, sortAppointments, sortDoses, toggleCheck, validPin } from './logic.js';
-import { loadData, persistStatus, readAuth, resetApp, saveData, setPin, verifyPin } from './store.js';
+import { loadData, persistStatus, readAuth, resetApp, setPin, trySaveData, verifyPin } from './store.js';
 
 const $ = (id) => document.getElementById(id);
 let data = loadData(localStorage);
 let showPast = false;
 let persisted = null;
 
-function save(next) { data = saveData(localStorage, next); render(); }
+// A failed write keeps the old data, re-renders to undo the UI change, and shows why.
+function save(next) { const ok = trySaveData(localStorage, next, (msg) => toast(msg, 5000)); if (ok) data = next; render(); return ok; }
 const uid = () => crypto.randomUUID();
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+let toastTimer;
+function toast(msg, ms = 1800) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms); }
 const fmtTime = (t) => (t ? new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
 const fmtDate = (d) => new Date(`${d}T00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -63,14 +65,14 @@ function openEditor(title, fields, values, save) {
   $('editor').showModal();
   $('editorFields').querySelector('input,select,textarea')?.focus();
 }
-$('editorForm').addEventListener('submit', (e) => { e.preventDefault(); onSave?.(e.target); $('editor').close(); });
+$('editorForm').addEventListener('submit', (e) => { e.preventDefault(); if (onSave?.(e.target) !== false) $('editor').close(); });
 $('editorCancel').addEventListener('click', () => $('editor').close());
 
 function crud(listKey, fields, label) {
   return {
     add: (defaults = {}) => openEditor(`Add ${label}`, fields, defaults, (v) => save({ ...data, [listKey]: [...data[listKey], { id: uid(), ...v }] })),
     edit: (id) => openEditor(`Edit ${label}`, fields, data[listKey].find((x) => x.id === id), (v) => save({ ...data, [listKey]: data[listKey].map((x) => (x.id === id ? { ...x, ...v } : x)) })),
-    del: (id) => { const x = data[listKey].find((i) => i.id === id); if (confirm(`Delete "${x.name || x.title}"?`)) { save({ ...data, [listKey]: data[listKey].filter((i) => i.id !== id) }); toast('Deleted'); } },
+    del: (id) => { const x = data[listKey].find((i) => i.id === id); if (confirm(`Delete "${x.name || x.title}"?`)) { if (save({ ...data, [listKey]: data[listKey].filter((i) => i.id !== id) })) toast('Deleted'); } },
   };
 }
 const medFields = [
@@ -164,7 +166,7 @@ async function importData(file) {
   try {
     const next = parseBackup(await file.text());
     if (!confirm(`Replace current data with this backup (${next.meds.length} meds, ${next.appts.length} appointments, ${next.doses.length} doses)?`)) return;
-    save(next); toast('Backup imported');
+    if (save(next)) toast('Backup imported');
   } catch (err) { alert(`Import failed: ${err.message}`); }
 }
 
