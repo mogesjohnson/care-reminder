@@ -17,13 +17,21 @@ Tabs: **Today** (daily pills with check-offs that reset each day), **Current** m
 - The app asks the browser for persistent storage and shows on Settings whether it was granted.
 - Use **Export JSON** on Settings for backups and **Import JSON** to restore them. Clearing Chrome's site data deletes everything that isn't exported.
 
+### Screenshots
+
+Captured at 412x915 (Galaxy S23 Ultra size) with example data only.
+
+| Today | Current | Schedule | Meds | Settings |
+|---|---|---|---|---|
+| ![Today tab](docs/screenshots/today.png) | ![Current tab](docs/screenshots/current.png) | ![Schedule tab](docs/screenshots/schedule.png) | ![Meds tab](docs/screenshots/meds.png) | ![Settings tab](docs/screenshots/settings.png) |
+
 ### About the PIN
 
 The PIN is a **local lock, not real security**. It is stored as a salted SHA-256 hash, but the data itself is not encrypted, and anyone with access to the unlocked phone or the browser's storage can read it. If you forget the PIN, **Reset** on the lock screen wipes all data after a confirmation.
 
 ### Development
 
-Plain HTML, CSS and JavaScript with no build step. Run `npm test` for the tests. Run `python3 tools/make_icons.py` to regenerate the icons (needs Pillow).
+Plain HTML, CSS and JavaScript with no build step. Run `npm test` for the tests. Run `npm run test:e2e` for the headless-Chrome phone check (login, each tab's add/edit/delete, daily reset, export/import, offline service worker); it skips itself when no Chrome is found, and `CHROME_PATH` points it at one. Run `npm run screenshots` to regenerate the README screenshots. Run `python3 tools/make_icons.py` to regenerate the icons (needs Pillow).
 
 ## How work flows
 

@@ -4,6 +4,8 @@
   "scripts": {
     "prepare": "node scripts/setup-hooks.mjs",
     "test": "node scripts/test/run.mjs && node --test tests/*.test.mjs",
+    "test:e2e": "node --test tests/e2e/*.e2e.mjs",
+    "screenshots": "node scripts/e2e-screenshots.mjs",
     "check:size": "node scripts/check/pr-size.mjs"
   },
   "type": "module"
